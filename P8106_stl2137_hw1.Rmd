@@ -1,0 +1,70 @@
+---
+title: "P8106_stl2137_HW1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(caret)
+library(ModelMetrics)
+library(pls)
+library(ISLR)
+```
+
+```{r}
+training_dat <- read_csv("./data/solubility_train.csv")
+test_dat <- read_csv("./data/solubility_test.csv")
+```
+
+```{r}
+### Creating variables & training control for Linear Model 
+
+# matrix of predictors (training)
+## [,-1] due to intercept variable
+x <- model.matrix(Solubility ~ ., training_dat)[,-1]
+
+# vector of response (training)
+y <- training_dat$Solubility
+
+# creating training controls 
+control1 <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
+
+# matrix of predictors (test)
+x.test <- model.matrix(Solubility ~ ., test_dat)[,-1]
+
+# vector of response (test)
+y.test <- test_dat$Solubility
+```
+
+(a) Fit a linear model using least squares on the training data and calculate the mean square error using the test data.
+```{r}
+set.seed(1)
+lm.fit <- train(x, y, 
+                method = "lm",
+                trControl = control1)
+
+predict.lm.fit <- predict(lm.fit, newdata = test_dat)
+mse(y.test, predict.lm.fit)
+```
+
+(b) Fit a ridge regression model on the training data, with λ chosen by cross-validation. Report the test error.
+```{r}
+set.seed(1)
+ridge.fit <- train(x, y, 
+                   method = "glmnet",
+                   tuneGrid = expand.grid(alpha = 0,
+                                          lambda = exp(seq(-5, 5, length = 100))),
+                   trControl = control1)
+
+plot(ridge.fit, xTrans = function(x) log(x))
+
+ridge.fit$bestTune
+#coef(ridge.fit$finalModel, ridge.fit$bestTune$lambda)
+```
+
+(c) Fit a lasso model on the training data, with λ chosen by cross-validation. Report the test error, along with the number of non-zero coefficient estimates.
+```{r}
+
+```
+
