@@ -61,10 +61,65 @@ plot(ridge.fit, xTrans = function(x) log(x))
 
 ridge.fit$bestTune
 #coef(ridge.fit$finalModel, ridge.fit$bestTune$lambda)
+
+predict.ridge.fit <- predict(ridge.fit, newdata = test_dat)
+mse(y.test, predict.ridge.fit)
 ```
 
 (c) Fit a lasso model on the training data, with λ chosen by cross-validation. Report the test error, along with the number of non-zero coefficient estimates.
 ```{r}
+set.seed(1)
+lasso.fit <- train(x, y, 
+                   method = "glmnet",
+                   tuneGrid = expand.grid(alpha = 1,
+                                          lambda = exp(seq(-10, 0, length = 100))),
+                   trControl = control1)
 
+predict.lasso.fit <- predict(lasso.fit, newdata = test_dat)
+mse(y.test, predict.lasso.fit)
+
+plot(lasso.fit, xTrans = function(x) log(x))
+
+lasso.fit$bestTune
+
+coef_estimates <- coef(lasso.fit$finalModel,lasso.fit$bestTune$lambda) 
+table((as.vector(coef_estimates)))
+sum(as.vector(coef_estimates) != 0)
+
+summary(lasso.fit$resample$RMSE)
+```
+
+(d) Fit a principle component regression model on the training data, with M chosen by cross-validation. Report the test error, along with the value of M selected by cross-validation.
+
+```{r}
+set.seed(1)
+pcr.fit <- train(x, y,
+                 method = "pcr",
+                 tuneGrid  = data.frame(ncomp = 1:226),
+                 trControl = control1,
+                 preProc = c("center", "scale"))
+
+trans <- preProcess(x, method = c("center", "scale"))
+predy2.pcr2 <- predict(pcr.fit$finalModel, newdata = predict(trans, x.test), 
+                       ncomp = pcr.fit$bestTune$ncomp)
+mse(y.test, predy2.pcr2)
+
+ggplot(pcr.fit, highlight = TRUE) + theme_bw()
+```
+
+(e) Briefly discuss the results obtained in (a)∼(d).
+```{r}
+
+```
+
+(f) Which model will you choose for predicting solubility?
+```{r}
+resamp <- resamples(list(lasso = lasso.fit, 
+                         ridge = ridge.fit, 
+                         pcr = pcr.fit, 
+                         lm = lm.fit))
+summary(resamp)
+
+bwplot(resamp, metric = "RMSE")
 ```
 
