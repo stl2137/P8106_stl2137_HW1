@@ -3,16 +3,18 @@ title: "P8106_stl2137_HW1"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(caret)
 library(ModelMetrics)
 library(pls)
 library(ISLR)
+
+set.seed(1)
 ```
 
-```{r}
+```{r, echo=FALSE}
 training_dat <- read_csv("./data/solubility_train.csv")
 test_dat <- read_csv("./data/solubility_test.csv")
 ```
@@ -37,20 +39,22 @@ x.test <- model.matrix(Solubility ~ ., test_dat)[,-1]
 y.test <- test_dat$Solubility
 ```
 
-(a) Fit a linear model using least squares on the training data and calculate the mean square error using the test data.
-```{r}
-set.seed(1)
+## Part A
+
+```{r, warning=FALSE}
 lm.fit <- train(x, y, 
                 method = "lm",
                 trControl = control1)
 
 predict.lm.fit <- predict(lm.fit, newdata = test_dat)
-mse(y.test, predict.lm.fit)
+linear_mse <- mse(y.test, predict.lm.fit)
 ```
 
-(b) Fit a ridge regression model on the training data, with λ chosen by cross-validation. Report the test error.
+The MSE of the linear model on the test data is `r linear_mse`.
+
+## Part B 
+
 ```{r}
-set.seed(1)
 ridge.fit <- train(x, y, 
                    method = "glmnet",
                    tuneGrid = expand.grid(alpha = 0,
@@ -63,33 +67,35 @@ ridge.fit$bestTune
 #coef(ridge.fit$finalModel, ridge.fit$bestTune$lambda)
 
 predict.ridge.fit <- predict(ridge.fit, newdata = test_dat)
-mse(y.test, predict.ridge.fit)
+ridge_mse <- mse(y.test, predict.ridge.fit)
 ```
 
-(c) Fit a lasso model on the training data, with λ chosen by cross-validation. Report the test error, along with the number of non-zero coefficient estimates.
+The MSE of the ridge regression model on the test data is `r ridge_mse`, with the chosen $\lambda$ of `r ridge.fit$bestTune$lambda`. 
+
+## Part C
+
 ```{r}
-set.seed(1)
 lasso.fit <- train(x, y, 
                    method = "glmnet",
                    tuneGrid = expand.grid(alpha = 1,
                                           lambda = exp(seq(-10, 0, length = 100))),
-                   trControl = control1)
-
-predict.lasso.fit <- predict(lasso.fit, newdata = test_dat)
-mse(y.test, predict.lasso.fit)
+                   trControl = control1
+                   )
 
 plot(lasso.fit, xTrans = function(x) log(x))
 
-lasso.fit$bestTune
+lasso.fit$bestTune$lambda
 
 coef_estimates <- coef(lasso.fit$finalModel,lasso.fit$bestTune$lambda) 
-table((as.vector(coef_estimates)))
-sum(as.vector(coef_estimates) != 0)
+num_coef <- sum(as.vector(coef_estimates) != 0)
 
-summary(lasso.fit$resample$RMSE)
+predict.lasso.fit <- predict(lasso.fit, newdata = test_dat)
+lasso_mse <- mse(y.test, predict.lasso.fit)
 ```
 
-(d) Fit a principle component regression model on the training data, with M chosen by cross-validation. Report the test error, along with the value of M selected by cross-validation.
+Using a $\lambda$ of `r lasso.fit$bestTune$lambda`, the MSE of the lasso regression on the test data is `r lasso.fit$bestTune$lambda`. There are `r num_coef`non-zero coefficient estimates.
+
+## Part D
 
 ```{r}
 set.seed(1)
@@ -102,17 +108,26 @@ pcr.fit <- train(x, y,
 trans <- preProcess(x, method = c("center", "scale"))
 predy2.pcr2 <- predict(pcr.fit$finalModel, newdata = predict(trans, x.test), 
                        ncomp = pcr.fit$bestTune$ncomp)
-mse(y.test, predy2.pcr2)
+pcr_mse <- mse(y.test, predy2.pcr2)
 
 ggplot(pcr.fit, highlight = TRUE) + theme_bw()
 ```
 
-(e) Briefly discuss the results obtained in (a)∼(d).
-```{r}
+The MSE of the model using PCR on the test data is `r pcr_mse`, with M equal to 149.
 
+## Part E
+
+```{r}
+mse_table <- tibble(
+  model = c("Linear", "Ridge", "Lasso", "PCR"),
+  mse = c(linear_mse, ridge_mse, lasso_mse, pcr_mse)
+)
 ```
 
-(f) Which model will you choose for predicting solubility?
+Based off the table of MSE's derived from each model, we can see that lasso has the lowest mse. 
+
+## Part F
+
 ```{r}
 resamp <- resamples(list(lasso = lasso.fit, 
                          ridge = ridge.fit, 
@@ -121,5 +136,9 @@ resamp <- resamples(list(lasso = lasso.fit,
 summary(resamp)
 
 bwplot(resamp, metric = "RMSE")
+
+parallelplot(resamp, metric = "RMSE")
 ```
+
+Based off the MSE, box plot, and RMSE summary, I would use the lasso model for predicting purposes, as it has the lowest MSE out of all the models. 
 
